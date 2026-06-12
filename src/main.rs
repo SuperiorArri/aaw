@@ -1,9 +1,8 @@
-use std::{thread, time::Duration};
-
 use aaw::{
-    midi::{event::MidiEventKind, input::MidiRuntime},
+    midi::{event::MidiEventKind, runtime::MidiRuntime},
     rt_channels,
 };
+use std::{thread, time::Duration};
 use tracing::info;
 
 #[tokio::main]
