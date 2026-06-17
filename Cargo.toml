@@ -6,7 +6,7 @@ edition = "2024"
 [dependencies]
 anyhow = "1"
 axum = { version = "0.8", features = ["ws"] }
-cpal = "0.18"
+cpal = { version = "0.18", features = ["pipewire", "pulseaudio", "realtime-dbus"] }
 midir = "0.11"
 rtrb = "0.3"
 serde = { version = "1", features = ["derive"] }

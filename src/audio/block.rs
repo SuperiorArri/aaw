@@ -15,7 +15,7 @@ impl AudioBlock {
         }
     }
 
-    pub fn resize_for_callback(&mut self, frame_count: usize) -> bool {
+    pub fn prepare(&mut self, frame_count: usize) -> bool {
         if frame_count > self.max_frame_count {
             self.frame_count = 0;
             return false;
