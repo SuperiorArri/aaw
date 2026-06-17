@@ -6,6 +6,7 @@ and this project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### Added
+ - audio stream
  - MIDI runtime
 
 [Unreleased]: https://github.com/SuperiorArri/aaw/compare/main...dev
