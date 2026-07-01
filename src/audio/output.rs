@@ -6,14 +6,14 @@ use crate::{
             SampleRateSelection,
         },
     },
-    instruments::engine::Engine,
+    engine::Engine,
 };
 use cpal::{
     BufferSize,
     traits::{DeviceTrait, HostTrait, StreamTrait},
 };
-use tracing::{error, info};
 use std::sync::{Arc, Mutex};
+use tracing::error;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -114,14 +114,14 @@ where
                 let scratch = &mut scratch[..output.len()];
                 {
                     let _engine = engine.lock().expect("engine poisoned");
-                    info!("process {}", scratch.len());
+                    // info!("process {}", scratch.len());
                 }
 
                 for (dst, src) in output.iter_mut().zip(scratch.iter().copied()) {
                     *dst = T::from_sample(src);
                 }
             },
-            move |err| error!(target="stream", "{err}"),
+            move |err| error!(target = "stream", "{err}"),
             None,
         )
         .map_err(Error::FailedToBuildStream)?;

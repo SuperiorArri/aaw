@@ -1,8 +1,11 @@
 use aaw::{
-    audio::{self, params::DeviceCfgSelection}, instruments::engine::Engine, midi::{event::MidiEventKind, runtime::MidiRuntime}, rt_channels
+    audio::{self, params::DeviceCfgSelection},
+    engine::Engine,
+    midi::{AutoConnectInput, ControlChange, MidiEventKind, MidiRuntime},
+    rt_channels,
 };
-use std::{sync::Arc, thread, time::Duration};
-use tracing::info;
+use std::{collections::HashMap, sync::Arc, thread, time::Duration};
+use tracing::{error, info};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
@@ -16,7 +19,23 @@ async fn main() -> anyhow::Result<()> {
     info!("** Arri's Audio Workstation **");
 
     let (tx, mut rx) = rt_channels::create_mpsc(256);
-    let mut midi_runtime = MidiRuntime::new(16, "aaw", tx)?;
+    let auto_connect_inputs = HashMap::from([
+        (
+            "129:0".into(),
+            AutoConnectInput {
+                slot_id: 0,
+                slot_id_fixed: false,
+            },
+        ),
+        (
+            "148:0".into(),
+            AutoConnectInput {
+                slot_id: 0,
+                slot_id_fixed: false,
+            },
+        ),
+    ]);
+    let mut midi_runtime = MidiRuntime::new(16, "aaw", tx, auto_connect_inputs)?;
     midi_runtime.refresh_input_ports()?;
 
     println!("--- MIDI Info ---");
@@ -43,7 +62,9 @@ async fn main() -> anyhow::Result<()> {
 
     let device_config = audio::output::ResolvedConfig::find(&DeviceCfgSelection {
         host: audio::params::HostSelection::Id("pulseaudio".into()),
-        device: audio::params::DeviceSelection::Id("alsa_output.usb-HP__Inc_HyperX_Cloud_Alpha_Wireless_00000001-00.analog-stereo".into()),
+        device: audio::params::DeviceSelection::Id(
+            "alsa_output.usb-HP__Inc_HyperX_Cloud_Alpha_Wireless_00000001-00.analog-stereo".into(),
+        ),
         latency: audio::params::LatencySelection::Low,
         sample_rate: audio::params::SampleRateSelection::Automatic,
     })?;
@@ -60,15 +81,20 @@ async fn main() -> anyhow::Result<()> {
     let _stream = device_config.start_stream(Arc::clone(&engine));
 
     println!("=====================");
-    midi_runtime.connect_input(0, "129:0")?;
+
+    spawn_midi_runtime_task(midi_runtime);
 
     loop {
         if let Ok(event) = rx.pop() {
             info!("[event] {event:?}");
 
-            if let MidiEventKind::NoteOn { key, velocity: _ } = event.kind
-                && key < 64
+            if let MidiEventKind::ControlChange {
+                controller,
+                value: _,
+            } = event.kind
+                && controller == ControlChange::AllNotesOff as u8
             {
+                info!("[midi panic]");
                 break;
             }
         } else {
@@ -77,4 +103,50 @@ async fn main() -> anyhow::Result<()> {
     }
 
     return Ok(());
+}
+
+fn spawn_midi_runtime_task(mut midi_runtime: MidiRuntime) {
+    tokio::spawn(async move {
+        // let auto_connect = &[(0, "129:0"), (1, "148:0")][..];
+        loop {
+            // if midi_runtime.refresh_input_ports().is_ok() {
+            //     for (i, info) in midi_runtime.available_input_ports().iter().enumerate() {
+            //         println!("[{i}] {info:?}");
+            //     }
+            //     println!("---");
+            //     for (slot_id, port_id) in auto_connect {
+            //         let avail = midi_runtime.is_input_port_available(port_id);
+
+            //         match midi_runtime.port_id(*slot_id) {
+            //             Ok(con_port_id) => {
+            //                 if !avail
+            //                     && con_port_id == *port_id
+            //                     && midi_runtime.disconnect_input(*slot_id).is_ok()
+            //                 {
+            //                     info!(
+            //                         "auto disconnected midi input: {} from slot {}",
+            //                         *port_id, *slot_id
+            //                     );
+            //                 }
+            //             }
+            //             Err(midi::InputSlotError::NotConnected) => {
+            //                 if avail && midi_runtime.connect_input(*slot_id, port_id).is_ok() {
+            //                     info!(
+            //                         "auto connected midi input: {} to slot {}",
+            //                         *port_id, *slot_id
+            //                     );
+            //                 }
+            //             }
+            //             Err(_) => {}
+            //         }
+            //     }
+            // }
+            if let Err(err) = midi_runtime.refresh_input_ports() {
+                error!("Error refreshing MIDI input ports: {}", err);
+            } else if let Err(err) = midi_runtime.update_input_connections() {
+                error!("Error updating MIDI input connections: {}", err);
+            }
+            tokio::time::sleep(Duration::from_millis(1000)).await;
+        }
+    });
 }

@@ -2,9 +2,29 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
 pub struct MidiEvent {
-    pub timestamp_samples: Option<u64>,
+    pub timestamp: Option<u64>,
     pub channel: u8,
     pub kind: MidiEventKind,
+}
+
+impl MidiEvent {
+    pub fn transpose(&self, transposition: i8) -> Option<MidiEvent> {
+        if let MidiEventKind::NoteOn { key, velocity } = self.kind {
+            let key = transpose(key, transposition)?;
+            Some(MidiEvent {
+                kind: MidiEventKind::NoteOn { key, velocity },
+                ..*self
+            })
+        } else if let MidiEventKind::NoteOff { key, velocity } = self.kind {
+            let key = transpose(key, transposition)?;
+            Some(MidiEvent {
+                kind: MidiEventKind::NoteOff { key, velocity },
+                ..*self
+            })
+        } else {
+            Some(*self)
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Serialize, Deserialize)]
@@ -49,8 +69,19 @@ pub fn parse_midi_message(message: &[u8]) -> Option<MidiEvent> {
     };
 
     Some(MidiEvent {
-        timestamp_samples: None,
+        timestamp: None,
         channel,
         kind,
     })
+}
+
+fn transpose(key: u8, transposition: i8) -> Option<u8> {
+    let (key, overflow) = key.overflowing_add_signed(transposition);
+    if overflow {
+        return None;
+    }
+    if key > 127 {
+        return None;
+    }
+    Some(key)
 }
