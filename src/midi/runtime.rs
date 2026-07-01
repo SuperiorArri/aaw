@@ -98,7 +98,7 @@ impl DisconnectedInputSlot {
                     && let Err(event) = tx.blocking_push(event)
                 {
                     warn!(
-                        target = "midi-runtime",
+                        target: LOG_TARGET,
                         "failed to push midi event: {event:#?}"
                     );
                 }
@@ -258,7 +258,7 @@ impl MidiRuntime {
                 && !is_input_port_available(&self.available_ports, port_id)
             {
                 info!(
-                    target = LOG_TARGET,
+                    target: LOG_TARGET,
                     "auto disconnecting midi input: {} from slot {}", port_id, slot_id
                 );
             } else {
@@ -279,7 +279,7 @@ impl MidiRuntime {
 
             let Some((slot_id, slot)) = get_new_slot_mut(&mut self.inputs, state) else {
                 info!(
-                    target = LOG_TARGET,
+                    target: LOG_TARGET,
                     "no available slots for auto-connect of port: {}", port_id
                 );
                 continue;
@@ -288,7 +288,7 @@ impl MidiRuntime {
             connect_input_slot(slot, port_id)?;
             state.preferred_slot_id = slot_id;
             info!(
-                target = LOG_TARGET,
+                target: LOG_TARGET,
                 "auto connected midi input: {} to slot {}", port_id, slot_id
             );
         }
